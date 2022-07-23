@@ -1,4 +1,24 @@
-import { useMemo, useState } from 'react';
+import React, {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import { clsx } from 'clsx';
+import {
+  DateCellItem,
+  daysOfTheWeek,
+  getCurrentMothDays,
+  getDateFromInputValue,
+  getDaysAmountInAMonth,
+  getInputValueFromDate,
+  getNextMonthDays,
+  getPreviousMonthDays,
+  isInRange,
+  isToday,
+  months,
+} from './utils';
 
 interface DatePickerProps {
   value: Date;
@@ -7,122 +27,190 @@ interface DatePickerProps {
   max?: Date;
 }
 
-const months = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-];
+/* 
+TODO:
+- fix bug [done]
+- input and popup [done]
+- write a date through input [done]
+- refactoring [done]
+- remove unnecessary chars from input [done]
 
-const daysOfTheWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+- min and max [done]
+- highlight input with invalid value [done]
 
-interface DateCellItem {
-  date: number;
-  month: number;
-  year: number;
+- improve styles
+  - highlight today [done]
+  - highlight prev and next month days [done]
+  - popup and input styles [done]
 
-  // ????
-  isToday?: boolean;
-  isSelected?: boolean;
+- [after video] think about solution without effects?
+*/
+
+function useLatest<T>(value: T) {
+  const valueRef = useRef(value);
+
+  useLayoutEffect(() => {
+    valueRef.current = value;
+  }, [value]);
+
+  return valueRef;
 }
 
-const getDaysAmountInAMonth = (year: number, month: number) => {
-  const nextMonthDate = new Date(year, month + 1, 1);
-  // mutates the date object
-  nextMonthDate.setMinutes(-1);
-  return nextMonthDate.getDate();
-};
-
-const getPreviousMonthDays = (year: number, month: number) => {
-  const currentMonthFirstDay = new Date(year, month, 1);
-  const dayOfTheWeek = currentMonthFirstDay.getDay();
-  const prevMonthCellsAmount = dayOfTheWeek - 1;
-
-  const daysAmountInPrevMonth = getDaysAmountInAMonth(year, month - 1);
-
-  const dateCells: DateCellItem[] = [];
-
-  const [cellYear, cellMonth] =
-    month === 0 ? [year - 1, 11] : [year, month - 1];
-
-  for (let i = prevMonthCellsAmount - 1; i >= 0; i--) {
-    dateCells.push({
-      year: cellYear,
-      month: cellMonth,
-      date: daysAmountInPrevMonth - i,
-    });
-  }
-
-  return dateCells;
-};
-
-const VISIBLE_CELLS_AMOUNT = 7 * 6;
-
-const getNextMonthDays = (year: number, month: number) => {
-  // TODO copy paste
-  const currentMonthFirstDay = new Date(year, month, 1);
-  const dayOfTheWeek = currentMonthFirstDay.getDay();
-  const prevMonthCellsAmount = dayOfTheWeek - 1;
-  // TODO end copy paste
-
-  const daysAmount = getDaysAmountInAMonth(year, month);
-
-  const nextMonthDays =
-    VISIBLE_CELLS_AMOUNT - daysAmount - prevMonthCellsAmount;
-
-  const [cellYear, cellMonth] =
-    month === 11 ? [year + 1, 0] : [year, month + 1];
-
-  const dateCells: DateCellItem[] = [];
-
-  for (let i = 1; i <= nextMonthDays; i++) {
-    dateCells.push({
-      year: cellYear,
-      month: cellMonth,
-      date: i,
-    });
-  }
-
-  return dateCells;
-};
-
-const getCurrentMothDays = (
-  year: number,
-  month: number,
-  numberOfDays: number
-) => {
-  const dateCells: DateCellItem[] = [];
-
-  for (let i = 1; i <= numberOfDays; i++) {
-    dateCells.push({
-      year,
-      month,
-      date: i,
-    });
-  }
-
-  return dateCells;
-};
-
 export const DatePicker = ({ value, onChange, min, max }: DatePickerProps) => {
-  const [panelYear, setPanelYear] = useState(() => value.getFullYear());
-  const [panelMonth, setPanelMonth] = useState(() => value.getMonth());
+  const [showPopup, setShowPopup] = useState(false);
+  const [inputValue, setInputValue] = useState('');
+  const elementRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    setInputValue(getInputValueFromDate(value));
+  }, [value]);
+
+  const updateValueOnPopupCloseAction = () => {
+    const date = getDateFromInputValue(inputValue);
+
+    setShowPopup(false);
+
+    if (!date) {
+      // input value is invalid
+      // reset it
+      setInputValue(getInputValueFromDate(value));
+      return;
+    }
+
+    const isDateInRange = isInRange(date, min, max);
+
+    if (!isDateInRange) {
+      return;
+    }
+
+    onChange(date);
+  };
+
+  const latestUpdateValueFromInput = useLatest(updateValueOnPopupCloseAction);
+
+  useEffect(() => {
+    const element = elementRef.current;
+
+    if (!element) return;
+
+    const onDocumentClick = (e: MouseEvent) => {
+      const target = e.target;
+
+      if (!(target instanceof Node)) {
+        return;
+      }
+
+      if (element.contains(target)) {
+        return;
+      }
+
+      latestUpdateValueFromInput.current();
+    };
+
+    document.addEventListener('click', onDocumentClick);
+
+    return () => {
+      document.removeEventListener('click', onDocumentClick);
+    };
+  }, [latestUpdateValueFromInput]);
+
+  const handleChange = (value: Date) => {
+    onChange(value);
+    setShowPopup(false);
+  };
+
+  const onInputValueChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInputValue(e.target.value.trim());
+  };
+
+  const onInputClick = () => {
+    setShowPopup(true);
+  };
+
+  const [inputValueDate, isValidInputValue] = useMemo(() => {
+    const date = getDateFromInputValue(inputValue);
+
+    if (!date) {
+      return [undefined, false];
+    }
+
+    const isDateInRange = isInRange(date, min, max);
+
+    return [date, isDateInRange];
+  }, [inputValue, min, max]);
+
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key !== 'Enter') {
+      return;
+    }
+
+    updateValueOnPopupCloseAction();
+  };
+
+  return (
+    <div ref={elementRef} className="DatePicker">
+      <input
+        className={clsx(
+          'DatePicker__input',
+          !isValidInputValue && 'DatePicker__input--invalid'
+        )}
+        value={inputValue}
+        onChange={onInputValueChange}
+        type="text"
+        onClick={onInputClick}
+        onKeyDown={onKeyDown}
+      />
+
+      {showPopup && (
+        <div className="DatePicker__popup">
+          <DatePickerPopupContent
+            selectedValue={value}
+            onChange={handleChange}
+            min={min}
+            max={max}
+            inputValueDate={inputValueDate}
+          />
+        </div>
+      )}
+    </div>
+  );
+};
+
+interface DatePickerPopupContentProps {
+  selectedValue: Date;
+  inputValueDate?: Date;
+  min?: Date;
+  max?: Date;
+  onChange: (value: Date) => void;
+}
+
+const DatePickerPopupContent = ({
+  selectedValue,
+  inputValueDate,
+  onChange,
+  min,
+  max,
+}: DatePickerPopupContentProps) => {
+  const [panelYear, setPanelYear] = useState(() => selectedValue.getFullYear());
+  const [panelMonth, setPanelMonth] = useState(() => selectedValue.getMonth());
+  const todayDate = useMemo(() => new Date(), []);
+
+  useLayoutEffect(() => {
+    if (!inputValueDate) {
+      return;
+    }
+
+    setPanelMonth(inputValueDate.getMonth());
+    setPanelYear(inputValueDate.getFullYear());
+  }, [inputValueDate]);
 
   const [year, month, day] = useMemo(() => {
-    const currentYear = value.getFullYear();
-    const currentDay = value.getDate();
-    const currentMonth = value.getMonth();
+    const currentYear = selectedValue.getFullYear();
+    const currentDay = selectedValue.getDate();
+    const currentMonth = selectedValue.getMonth();
 
     return [currentYear, currentMonth, currentDay];
-  }, [value]);
+  }, [selectedValue]);
 
   const dateCells = useMemo(() => {
     const daysInAMonth = getDaysAmountInAMonth(panelYear, panelMonth);
@@ -169,32 +257,53 @@ export const DatePicker = ({ value, onChange, min, max }: DatePickerProps) => {
   };
 
   return (
-    <div style={{ padding: 12 }}>
-      <div style={{ display: 'flex', margin: '12px 0', gap: 8 }}>
-        <button onClick={prevYear}>Prev Year</button>
-        <button onClick={prevMonth}>Prev Month</button>
-        <button onClick={nextMonth}>Next Month</button>
-        <button onClick={nextYear}>Next Year</button>
+    <div className="CalendarPanel">
+      <div className="CalendarPanel__header">
+        <div className="CalendarPanel__date">
+          {months[panelMonth]} {panelYear}
+        </div>
+        <div className="CalendarPanel__buttons">
+          <div className="CalendarPanel__buttons-left">
+            <button onClick={prevYear}>Prev Year</button>
+            <button onClick={prevMonth}>Prev Month</button>
+          </div>
+          <div className="CalendarPanel__buttons-right">
+            <button onClick={nextMonth}>Next Month</button>
+            <button onClick={nextYear}>Next Year</button>
+          </div>
+        </div>
       </div>
-      <div className="CalendarPanel">
+      <div className="CalendarPanel__content">
         {daysOfTheWeek.map(weekDay => (
           <div key={weekDay} className="CalendarPanelItem">
             {weekDay}
           </div>
         ))}
         {dateCells.map(cell => {
-          const isCurrentDate =
+          const isSelectedDate =
             cell.year === year && cell.month === month && cell.date === day;
+          const isTodayDate = isToday(cell, todayDate);
+          const isNotCurrent = cell.type !== 'current';
+
+          const isDateInRange = isInRange(
+            new Date(cell.year, cell.month, cell.date),
+            min,
+            max
+          );
+
           return (
             <div
-              className={
-                'CalendarPanelItem' +
-                (isCurrentDate ? ' CalendarPanelItem--current' : '')
-              }
+              className={clsx(
+                'CalendarPanelItem',
+                isSelectedDate && 'CalendarPanelItem--selected',
+                isTodayDate && 'CalendarPanelItem--today',
+                isNotCurrent && 'CalendarPanelItem--not-current',
+                !isDateInRange && 'CalendarPanelItem--not-in-range'
+              )}
               key={`${cell.date}-${cell.month}-${cell.year}`}
-              onClick={() => onDateSelect(cell)}
+              onClick={() => isDateInRange && onDateSelect(cell)}
             >
-              {cell.date}
+              <div className="CalendarPanelItem__date">{cell.date}</div>
             </div>
           );
         })}
