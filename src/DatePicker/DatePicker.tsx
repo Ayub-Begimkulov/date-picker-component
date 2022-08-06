@@ -21,7 +21,7 @@ import {
 } from './utils';
 import { useLatest } from '../hooks';
 
-interface DatePickerProps {
+export interface DatePickerProps {
   value: Date;
   onChange: (value: Date) => void;
   min?: Date;
@@ -139,8 +139,9 @@ export const DatePicker = ({ value, onChange, min, max }: DatePickerProps) => {
   };
 
   return (
-    <div ref={elementRef} className="DatePicker">
+    <div ref={elementRef} className="DatePicker" data-testid="data-picker-view">
       <input
+        data-testid="date-picker-input"
         className={clsx(
           'DatePicker__input',
           !isValidInputValue && 'DatePicker__input--invalid'
@@ -153,7 +154,7 @@ export const DatePicker = ({ value, onChange, min, max }: DatePickerProps) => {
       />
 
       {showPopup && (
-        <div className="DatePicker__popup">
+        <div className="DatePicker__popup" data-testid="date-picker-popup">
           <DatePickerPopupContent
             selectedValue={value}
             onChange={handleChange}
@@ -250,17 +251,40 @@ const DatePickerPopupContent = ({
   return (
     <div className="CalendarPanel">
       <div className="CalendarPanel__header">
-        <div className="CalendarPanel__date">
+        <div
+          className="CalendarPanel__date"
+          data-testid="date-picker-popup-month"
+        >
           {months[panelMonth]} {panelYear}
         </div>
         <div className="CalendarPanel__buttons">
           <div className="CalendarPanel__buttons-left">
-            <button onClick={prevYear}>Prev Year</button>
-            <button onClick={prevMonth}>Prev Month</button>
+            <button
+              data-testid="date-picker-popup-prev-year"
+              onClick={prevYear}
+            >
+              Prev Year
+            </button>
+            <button
+              data-testid="date-picker-popup-prev-month"
+              onClick={prevMonth}
+            >
+              Prev Month
+            </button>
           </div>
           <div className="CalendarPanel__buttons-right">
-            <button onClick={nextMonth}>Next Month</button>
-            <button onClick={nextYear}>Next Year</button>
+            <button
+              data-testid="date-picker-popup-next-month"
+              onClick={nextMonth}
+            >
+              Next Month
+            </button>
+            <button
+              data-testid="date-picker-popup-next-year"
+              onClick={nextYear}
+            >
+              Next Year
+            </button>
           </div>
         </div>
       </div>
@@ -293,6 +317,7 @@ const DatePickerPopupContent = ({
               )}
               key={`${cell.date}-${cell.month}-${cell.year}`}
               onClick={() => isDateInRange && onDateSelect(cell)}
+              data-testid="date-picker-popup-cell"
             >
               <div className="CalendarPanelItem__date">{cell.date}</div>
             </div>
