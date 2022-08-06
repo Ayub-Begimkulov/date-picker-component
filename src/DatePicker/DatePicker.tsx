@@ -19,6 +19,7 @@ import {
   isToday,
   months,
 } from './utils';
+import { useLatest } from '../hooks';
 
 interface DatePickerProps {
   value: Date;
@@ -45,16 +46,6 @@ TODO:
 
 - [after video] think about solution without effects?
 */
-
-function useLatest<T>(value: T) {
-  const valueRef = useRef(value);
-
-  useLayoutEffect(() => {
-    valueRef.current = value;
-  }, [value]);
-
-  return valueRef;
-}
 
 export const DatePicker = ({ value, onChange, min, max }: DatePickerProps) => {
   const [showPopup, setShowPopup] = useState(false);

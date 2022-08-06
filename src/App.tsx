@@ -4,7 +4,7 @@ import { DatePicker } from './DatePicker';
 import './App.css';
 
 const MIN_DATE = new Date(2022, 6, 1);
-const MAX_DATE = new Date(2022, 7, 0);
+const MAX_DATE = new Date(2022, 8, 0);
 
 function App() {
   const [date, setDate] = useState(() => new Date());
